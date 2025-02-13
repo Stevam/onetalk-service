@@ -1,0 +1,34 @@
+quarkus:
+  mongodb:
+    connection-string: mongodb://localhost:27017
+    database: onetalk
+  http:
+    cors:
+      ~: true
+      access-control-allow-credentials: true
+      access-control-max-age: 24H
+      headers: Content-Type, Authorization
+      methods: GET, POST, PUT, DELETE
+      origins: http://localhost:5173
+      exposed-headers: Authorization, Set-Cookie
+    auth:
+      permission:
+        default:
+          policy: authenticated
+  native:
+    resources:
+      includes: publicKey.pem
+
+mp:
+  jwt:
+    verify:
+      issuer: onetalk-api
+      lifespan: 3600
+      publickey:
+        location: publicKey.pem
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: privateKey.pem
