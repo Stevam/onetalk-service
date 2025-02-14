@@ -1,34 +1,30 @@
 quarkus:
   mongodb:
-    connection-string: mongodb://localhost:27017
-    database: onetalk
+    connection-string: ${MONGO_CONNECTION_STRING}
+    database: ${MONGO_DATABASE}
   http:
     cors:
       ~: true
-      access-control-allow-credentials: true
       access-control-max-age: 24H
-      headers: Content-Type, Authorization
+      headers: Content-Type, Authorization, X-Requested-With
       methods: GET, POST, PUT, DELETE
       origins: http://localhost:5173
-      exposed-headers: Authorization, Set-Cookie
-    auth:
-      permission:
-        default:
-          policy: authenticated
+      exposed-headers: Authorization
+
   native:
     resources:
-      includes: publicKey.pem
+      includes: publicKey.pem, privateKey.pem
 
 mp:
   jwt:
     verify:
       issuer: onetalk-api
-      lifespan: 3600
+      lifespan: 900 # 15 minutos
       publickey:
-        location: publicKey.pem
+        location: ${JWT_PUBLIC_KEY_PATH}
 
 smallrye:
   jwt:
     sign:
       key:
-        location: privateKey.pem
+        location: ${JWT_PRIVATE_KEY_PATH}
