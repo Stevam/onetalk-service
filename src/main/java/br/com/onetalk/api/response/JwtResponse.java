@@ -1,4 +1,4 @@
-package br.com.onetalk.controller.response;
+package br.com.onetalk.api.response;
 
 public class JwtResponse {
 
