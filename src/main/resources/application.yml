@@ -10,7 +10,6 @@ quarkus:
       methods: GET, POST, PUT, DELETE
       origins: http://localhost:5173
       exposed-headers: Authorization
-
   native:
     resources:
       includes: publicKey.pem, privateKey.pem

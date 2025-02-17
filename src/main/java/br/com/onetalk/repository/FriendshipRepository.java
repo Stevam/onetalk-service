@@ -1,28 +1,49 @@
 package br.com.onetalk.repository;
 
+import br.com.onetalk.infrastructure.constants.FriendshipStatus;
 import br.com.onetalk.model.Friendship;
-import io.quarkus.mongodb.panache.PanacheMongoRepository;
+import br.com.onetalk.model.User;
+import io.quarkus.mongodb.panache.reactive.ReactivePanacheMongoRepository;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.types.ObjectId;
 
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 @ApplicationScoped
-public class FriendshipRepository implements PanacheMongoRepository<Friendship> {
+public class FriendshipRepository implements ReactivePanacheMongoRepository<Friendship> {
 
-    public Friendship findByFriendEmailAndEmailAndStatus(String friendEmail, String email, Friendship.FriendshipStatus status) {
-        return find("friendEmail = ?1 and email = ?2 and status = ?3", friendEmail, email, status).firstResult();
+    public Multi<Friendship> findByUser(String email) {
+        return find("userEmail1 = ?1 or userEmail2 = ?1", email).stream();
     }
 
-    public Friendship findByEmailAndFriendEmail(String email, String friendEmail) {
-        return find("email = ?1 and friendEmail = ?2", email, friendEmail).firstResult();
+    public Uni<Friendship> findByEmails(String email1, String email2) {
+        String userEmail1 = email1.compareTo(email2) < 0 ? email1 : email2;
+        String userEmail2 = email1.compareTo(email2) < 0 ? email2 : email1;
+
+        return find("userEmail1 = ?1 and userEmail2 = ?2", userEmail1, userEmail2).firstResult();
     }
 
-    public List<Friendship> listAcceptedFriends(String email) {
-        return list("(email = ?1 or friendEmail = ?1) and status = ?2", email, Friendship.FriendshipStatus.ACCEPTED);
-    }
+    public Uni<Set<User>> listFriendsByStatus(String userEmail, FriendshipStatus status) {
+        return find("(userEmail1 = ?1 or userEmail2 = ?1) and status = ?2", userEmail, status)
+                .stream().collect().asList()
+                .map(friendshipList -> {
+                    Set<User> emails = new HashSet<>();
+                    friendshipList.forEach(friendship -> {
+                        if (!friendship.getUserEmail1().equals(userEmail)) {
+                            //TODO: REVER ESSA LOGICA DOS IDS
+                            emails.add(new User(new ObjectId(), friendship.getUserEmail1()));
+                        }
+                        if (!friendship.getUserEmail2().equals(userEmail)) {
+                            //TODO: REVER ESSA LOGICA DOS IDS
+                            emails.add(new User(new ObjectId(), friendship.getUserEmail2()));
+                        }
 
-    public List<Friendship> listPendingRequests(String email) {
-        return list("email = ?1 and status = ?2", email, Friendship.FriendshipStatus.PENDING);
+                    });
+                    return emails;
+                });
     }
 
 }
