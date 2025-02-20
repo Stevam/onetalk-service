@@ -1,6 +1,7 @@
 package br.com.onetalk.service;
 
 import br.com.onetalk.api.request.UserRequest;
+import br.com.onetalk.infrastructure.constants.UserStatus;
 import br.com.onetalk.infrastructure.constants.Roles;
 import br.com.onetalk.infrastructure.exceptions.CustomTokenGenerationException;
 import br.com.onetalk.model.User;
@@ -33,12 +34,22 @@ public class AuthService {
         if (request.getEmail() == null) {
             return Uni.createFrom().failure(new CreationException("Failure on creating user: email is required."));
         }
-        User user = new User(request.getName(), request.getEmail(),
-                BcryptUtil.bcryptHash(request.getPassword()), Collections.singleton(Roles.USER_ROLE), LocalDateTime.now());
+        User user = new User(request.getName(), request.getEmail(), BcryptUtil.bcryptHash(request.getPassword()),
+                null, null, null, Collections.singleton(Roles.USER_ROLE),
+                LocalDateTime.now(), UserStatus.OFFLINE, null);
+
         return repository.persist(user).replaceWithVoid();
     }
 
-    public Uni<String> signIn(UserRequest request) {
+    public Uni<User> getUser(String email) {
+        if (email == null) {
+            return Uni.createFrom().failure(new CreationException("Failure on creating user: email is required."));
+        }
+
+        return repository.findByEmail(email);
+    }
+
+    public Uni<User> signIn(UserRequest request) {
         return repository.findByEmail(request.getEmail())
                 .onItem().ifNotNull().transformToUni(user ->
                         verifyPassword(request.getPassword(), user.getPasswordHash())
@@ -49,7 +60,13 @@ public class AuthService {
                                                 new WebApplicationException("Invalid credentials.", Response.Status.UNAUTHORIZED)
                                         );
                                     }
-                                    return generateTokens(user);
+                                    return generateTokens(user)
+                                            .onItem().transform(token -> {
+                                                user.setToken(token);
+                                                user.setPasswordHash(null);
+                                                user.setRoles(null);
+                                                return user;
+                                            });
                                 })
                 )
                 .onItem().ifNull().continueWith(() -> {
@@ -78,6 +95,7 @@ public class AuthService {
                 String accessToken = Jwt.issuer("onetalk-api")
                         .upn(user.getEmail())
                         .claim("id", user.getId())
+                        .claim(Claims.nickname.name(), user.getName())
                         .claim(Claims.email.name(), user.getEmail())
                         .groups(user.getRoles())
                         .expiresIn(900)

@@ -5,6 +5,7 @@ import br.com.onetalk.api.service.FriendshipService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.json.Json;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
@@ -19,7 +20,9 @@ public class FriendshipController implements FriendshipApi {
         if (email == null) return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Friend's email is required.").build());
         String userEmail  = ctx.getUserPrincipal().getName();
         return service.sendInvite(userEmail, email)
-                .replaceWith(Response.ok("Friend request sent to: " + email).build())
+                .replaceWith(Response.ok(Json.createObjectBuilder()
+                        .add("message", "Friend request sent to: " + email)
+                        .build().toString()).build())
                 .onFailure().recoverWithItem(throwable ->
                         Response.status(Response.Status.BAD_REQUEST).entity(throwable.getMessage()).build());
     }
@@ -29,7 +32,9 @@ public class FriendshipController implements FriendshipApi {
         if (email == null) return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Friend's email is required.").build());
         String userEmail  = ctx.getUserPrincipal().getName();
         return service.acceptInvite(userEmail, email)
-                .replaceWith(Response.ok("Friendship accepted!").build())
+                .replaceWith(Response.ok(Json.createObjectBuilder()
+                        .add("message", "Friendship accepted!")
+                        .build().toString()).build())
                 .onFailure().recoverWithItem(throwable ->
                         Response.status(Response.Status.BAD_REQUEST).entity(throwable.getMessage()).build());
     }
@@ -39,7 +44,9 @@ public class FriendshipController implements FriendshipApi {
         if (email == null) return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Friend's email is required.").build());
         String userEmail  = ctx.getUserPrincipal().getName();
         return service.rejectInvite(userEmail, email)
-                .replaceWith(Response.ok("Friendship rejected!").build())
+                .replaceWith(Response.ok(Json.createObjectBuilder()
+                        .add("message", "Friendship rejected!")
+                        .build().toString()).build())
                 .onFailure().recoverWithItem(throwable ->
                         Response.status(Response.Status.BAD_REQUEST).entity(throwable.getMessage()).build());
     }
@@ -49,7 +56,9 @@ public class FriendshipController implements FriendshipApi {
         if (email == null) return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("Friend's email is required.").build());
         String userEmail  = ctx.getUserPrincipal().getName();
         return service.removeFriend(userEmail, email)
-                .replaceWith(Response.ok("Friendship broken!").build())
+                .replaceWith(Response.ok(Json.createObjectBuilder()
+                        .add("message", "Friendship broken!")
+                        .build().toString()).build())
                 .onFailure().recoverWithItem(throwable ->
                         Response.status(Response.Status.BAD_REQUEST).entity(throwable.getMessage()).build());
     }

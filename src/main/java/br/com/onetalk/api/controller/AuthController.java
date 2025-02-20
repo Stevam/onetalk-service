@@ -2,7 +2,6 @@ package br.com.onetalk.api.controller;
 
 import br.com.onetalk.api.AuthApi;
 import br.com.onetalk.api.request.UserRequest;
-import br.com.onetalk.api.response.JwtResponse;
 import br.com.onetalk.service.AuthService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -28,7 +27,7 @@ public class AuthController implements AuthApi {
     @Override
     public Uni<Response> signIn(UserRequest request) {
         return authService.signIn(request)
-                .onItem().transform(token -> Response.ok(new JwtResponse(token)).build())
+                .onItem().transform(user -> Response.ok(user).build())
                 .onFailure().recoverWithItem(throwable ->
                         Response.status(((WebApplicationException) throwable).getResponse().getStatus()).entity(throwable.getMessage()).build());
     }
