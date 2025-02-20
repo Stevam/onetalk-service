@@ -1,15 +1,16 @@
 package br.com.onetalk.api.service;
 
+import br.com.onetalk.api.response.FriendshipResponse;
 import br.com.onetalk.infrastructure.constants.FriendshipStatus;
 import br.com.onetalk.model.Friendship;
-import br.com.onetalk.model.User;
 import br.com.onetalk.repository.FriendshipRepository;
-import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @ApplicationScoped
@@ -20,25 +21,26 @@ public class FriendshipService {
 
     public Uni<Void> sendInvite(String userEmail, String email) {
         if (userEmail.equals(email)) throw new IllegalArgumentException("You can't add yourself as a friend.");
-        //TODO: VALIDAR SE O AMIGO È UM EMAIL VALIDO
+        //TODO: VALIDAR SE O AMIGO È UM EMAIL EXISTENTE
 
         return repository.findByEmails(userEmail, email)
                 .onItem().ifNotNull().transformToUni(existingFriendship -> {
                     // TODO: VALIDAR USUARIO BLOCKED
-                    if (existingFriendship.getStatus() != FriendshipStatus.REJECTED) {
-                        return Uni.createFrom().failure(new IllegalArgumentException("There is already a friendship request or accepted friendship."));
+                    if (existingFriendship.getStatus() != FriendshipStatus.REJECTED && existingFriendship.getStatus() != FriendshipStatus.BLOCKED) {
+                        return Uni.createFrom().failure(new IllegalArgumentException("You can't send a friendship request to this user."));
                     }
                     existingFriendship.setStatus(FriendshipStatus.PENDING);
                     return repository.persistOrUpdate(existingFriendship);
                 })
                 .onItem().ifNull().switchTo(() -> {
-                    Friendship friendship = new Friendship(null, userEmail, email, FriendshipStatus.PENDING, LocalDateTime.now());
+                    Friendship friendship = new Friendship(null, userEmail, email, userEmail, FriendshipStatus.PENDING, LocalDateTime.now());
                     return repository.persistOrUpdate(friendship);
                 }).replaceWithVoid();
     }
 
-    public  Uni<Void> acceptInvite(String userEmail, String email) {
-        if (userEmail.equals(email)) throw new IllegalArgumentException("You can't accept your own friendship request.");
+    public Uni<Void> acceptInvite(String userEmail, String email) {
+        if (userEmail.equals(email))
+            throw new IllegalArgumentException("You can't accept your own friendship request.");
 
         return repository.findByEmails(userEmail, email)
                 .onItem().ifNotNull().transformToUni(existingFriendship -> {
@@ -53,7 +55,8 @@ public class FriendshipService {
     }
 
     public Uni<Void> rejectInvite(String userEmail, String email) {
-        if (userEmail.equals(email)) throw new IllegalArgumentException("You can't reject your own friendship request.");
+        if (userEmail.equals(email))
+            throw new IllegalArgumentException("You can't reject your own friendship request.");
 
         return repository.findByEmails(userEmail, email)
                 .onItem().ifNotNull().transformToUni(existingFriendship -> {
@@ -79,13 +82,52 @@ public class FriendshipService {
                 .replaceWithVoid();
     }
 
-    public Uni<Set<User>> listInvites(String userEmail) {
-        //TODO: RETONAR OS USUARIOS
-        return repository.listFriendsByStatus(userEmail, FriendshipStatus.PENDING);
+    public Uni<Set<FriendshipResponse>> listInvites(String userEmail) {
+        return repository.listFriendsByStatus(userEmail, FriendshipStatus.PENDING).onItem()
+                .transform(friendships -> {
+                    Set<FriendshipResponse> responses = new HashSet<>();
+
+                    if (friendships.isEmpty()) {
+                        return responses;
+                    }
+
+                    friendships.forEach(friendship -> {
+                        //TODO: RETONAR OS USUARIOS
+                        String email = !Objects.equals(friendship.getUserEmail1(), userEmail) ? friendship.getUserEmail1() : friendship.getUserEmail2();
+
+                        FriendshipResponse response = new FriendshipResponse(friendship.getId(), email, friendship.getUserSender(),
+                                null, friendship.getStatus(), friendship.getCreatedAt()
+                        );
+
+                        responses.add(response);
+                    });
+
+                    return responses;
+                });
     }
 
-    public Uni<Set<User>> listFriends(String userEmail) {
-        //TODO: RETONAR OS USUARIOS
-        return repository.listFriendsByStatus(userEmail, FriendshipStatus.ACCEPTED);
+    public Uni<Set<FriendshipResponse>> listFriends(String userEmail) {
+
+        return repository.listFriendsByStatus(userEmail, FriendshipStatus.ACCEPTED).onItem()
+                .transform(friendships -> {
+                    Set<FriendshipResponse> responses = new HashSet<>();
+
+                    if (friendships.isEmpty()) {
+                        return responses;
+                    }
+
+                    friendships.forEach(friendship -> {
+
+                        String email = !Objects.equals(friendship.getUserEmail1(), userEmail) ? friendship.getUserEmail1() : friendship.getUserEmail2();
+                        //TODO: RETONAR OS USUARIOS
+                        FriendshipResponse response = new FriendshipResponse(friendship.getId(), email, friendship.getUserSender(),
+                                null, friendship.getStatus(), friendship.getCreatedAt()
+                        );
+
+                        responses.add(response);
+                    });
+
+                    return responses;
+                });
     }
 }
