@@ -9,6 +9,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -26,9 +27,20 @@ public class FriendshipService {
         return repository.findByEmails(userEmail, email)
                 .onItem().ifNotNull().transformToUni(existingFriendship -> {
                     // TODO: VALIDAR USUARIO BLOCKED
-                    if (existingFriendship.getStatus() != FriendshipStatus.REJECTED && existingFriendship.getStatus() != FriendshipStatus.BLOCKED) {
-                        return Uni.createFrom().failure(new IllegalArgumentException("You can't send a friendship request to this user."));
+                    if (existingFriendship.getStatus() == FriendshipStatus.BLOCKED) {
+                        return Uni.createFrom().failure(new IllegalArgumentException("User not found."));
                     }
+
+                    Set<FriendshipStatus> invalidStatuses = EnumSet.of(
+                            FriendshipStatus.PENDING,
+                            FriendshipStatus.ACCEPTED
+                    );
+
+                    if (invalidStatuses.contains(existingFriendship.getStatus())) {
+                        return Uni.createFrom().failure(new IllegalArgumentException("A friendship request already exists or has been accepted."));
+                    }
+
+                    existingFriendship.setUserSender(userEmail);
                     existingFriendship.setStatus(FriendshipStatus.PENDING);
                     return repository.persistOrUpdate(existingFriendship);
                 })
