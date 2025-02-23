@@ -1,6 +1,7 @@
 package br.com.onetalk.api;
 
 import br.com.onetalk.api.request.UserRequest;
+import br.com.onetalk.api.resource.UserResource;
 import br.com.onetalk.infrastructure.constants.Roles;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
@@ -9,10 +10,9 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
-@Path("/auth")
+@Path("/api/auth")
 @RequestScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -21,21 +21,21 @@ public interface AuthApi {
     @POST
     @PermitAll
     @Path("/sign-up")
-    Uni<Response> signUp(UserRequest request);
+    Uni<Void> signUp(UserRequest request);
 
     @POST
     @PermitAll
     @Path("/sign-in")
-    Uni<Response> signIn(UserRequest request);
+    Uni<UserResource> signIn(UserRequest request);
 
     @POST
     @PermitAll
     @Path("/sign-out")
-    Uni<Response> signOut();
+    Uni<Void> signOut();
 
     @GET
     @Path("/authenticated")
     @RolesAllowed(Roles.USER_ROLE)
-    Uni<Response> isAuthenticated(@Context SecurityContext securityContext);
+    Uni<Boolean> isAuthenticated(@Context SecurityContext securityContext);
 
 }
