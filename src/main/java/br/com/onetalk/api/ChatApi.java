@@ -83,66 +83,64 @@ public class ChatApi {
     @OnMessage
     @SneakyThrows
     public void onMessage(String messageJson, Session session) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            JsonNode jsonNode = objectMapper.readTree(messageJson);
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNode = objectMapper.readTree(messageJson);
 
-            if (jsonNode.has("type")) {
-                String messageType = jsonNode.get("type").asText();
-                if ("joinConversation".equals(messageType)) {
-                    String conversationId = jsonNode.get("conversationId").asText();
-                    ObjectId objectId = new ObjectId(conversationId);
-                    conversationSessions.computeIfAbsent(objectId, k -> ConcurrentHashMap.newKeySet()).add(session);
-                    session.getUserProperties().put("conversationId", objectId);
-                    log.info("Usuário associado à conversa: " + conversationId);
+        // Registro de userId no session
+        if (jsonNode.has("from")) {
+            String userId = jsonNode.get("from").asText();
+            userSessions.put(userId, session);
+            session.getUserProperties().put("userId", userId);
+        }
 
-                    //TODO: DEPOIS IMPLEMENTAR RECUPERAÇÂO DE MENSAGENS
-//                    messageService.getPendingMessagesByConversation(objectId).onItem().invoke(pendingMessages -> {
-//                        for (PendingMessage pendingMessage : pendingMessages) {
-//                            String jsonMessage = convertMessageToJson(pendingMessage);
-//                            session.getAsyncRemote().sendText(jsonMessage, result -> {
-//                                if (result.getException() != null) {
-//                                    log.error("Erro ao enviar mensagem pendente: " + result.getException().getMessage());
-//                                }
-//                            });
-//                        }
-//                    }).subscribe().with(
-//                            success -> log.info("Mensagens pendentes enviadas para a conversa: " + conversationId),
-//                            failure -> log.error("Erro ao buscar mensagens pendentes: " + failure.getMessage())
-//                    );
-                }
-            }
+        // Mensagens ponto a ponto (vídeo chamada)
+        if (jsonNode.has("to") && jsonNode.has("type")) {
+            String toUserId = jsonNode.get("to").asText();
+            Session targetSession = userSessions.get(toUserId);
 
-            Message message = parseMessage(messageJson);
-            if (message == null || message.getConversationId() == null) {
-                log.warn("Mensagem inválida ou conversationId ausente.");
+            if (targetSession != null && targetSession.isOpen()) {
+                targetSession.getAsyncRemote().sendText(messageJson);
+                return;
+            } else {
+                log.warn("Usuário alvo não está conectado: " + toUserId);
                 return;
             }
-            ObjectId conversationId = message.getConversationId();
-            conversationSessions.computeIfAbsent(conversationId, k -> ConcurrentHashMap.newKeySet()).add(session);
-            session.getUserProperties().put("conversationId", conversationId);
-            messageService.saveMessage(message)
-                    .onItem().invoke(savedMessage -> {
-                        log.info("Mensagem salva com sucesso: " + savedMessage);
-                        conversationService.patchUpdateLastMessage(conversationId, savedMessage)
-                                .onItem().invoke(updatedConversation -> {
-                                    log.info("Conversa atualizada com sucesso: " + updatedConversation);
-                                    broadcastMessage(conversationId, savedMessage);
-                                })
-                                .onFailure().invoke(failure -> log.error("Erro ao atualizar a conversa: " + failure.getMessage()))
-                                .subscribe().with(
-                                        savedConversation -> {/*Sucesso*/},
-                                        failure -> {/*Falha*/}
-                                );
-                    })
-                    .onFailure().invoke(failure -> log.error("Erro ao salvar a mensagem: " + failure.getMessage()))
-                    .subscribe().with(
-                            savedMessage -> {/*Sucesso*/},
-                            failure -> { /*Falha*/}
-                    );
-        } catch (IOException e) {
-            log.error("Erro ao processar a mensagem: " + e.getMessage());
         }
+
+        // Trata mensagens normais (chat em grupo)
+        if (jsonNode.has("type") && "joinConversation".equals(jsonNode.get("type").asText())) {
+            String conversationId = jsonNode.get("conversationId").asText();
+            ObjectId objectId = new ObjectId(conversationId);
+            conversationSessions.computeIfAbsent(objectId, k -> ConcurrentHashMap.newKeySet()).add(session);
+            session.getUserProperties().put("conversationId", objectId);
+            return;
+        }
+
+        // Mensagem de texto (salva no banco)
+        Message message = parseMessage(messageJson);
+        if (message == null || message.getConversationId() == null) {
+            log.warn("Mensagem inválida ou conversationId ausente.");
+            return;
+        }
+
+        ObjectId conversationId = message.getConversationId();
+        conversationSessions.computeIfAbsent(conversationId, k -> ConcurrentHashMap.newKeySet()).add(session);
+        session.getUserProperties().put("conversationId", conversationId);
+
+        messageService.saveMessage(message)
+                .onItem().invoke(savedMessage -> {
+                    conversationService.patchUpdateLastMessage(conversationId, savedMessage)
+                            .onItem().invoke(updatedConversation -> {
+                                broadcastMessage(conversationId, savedMessage);
+                            })
+                            .subscribe().with(
+                                    savedConversation -> {},
+                                    failure -> {}
+                            );
+                }).subscribe().with(
+                        savedMessage -> {},
+                        failure -> {}
+                );
     }
 
     @OnError
