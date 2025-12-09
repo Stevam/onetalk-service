@@ -2,11 +2,12 @@ package br.com.onetalk.api.controller;
 
 import br.com.onetalk.api.AuthApi;
 import br.com.onetalk.api.request.UserRequest;
+import br.com.onetalk.api.resource.UserResource;
+import br.com.onetalk.infrastructure.mappers.Mapper;
 import br.com.onetalk.service.AuthService;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.json.Json;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
@@ -16,46 +17,50 @@ public class AuthController implements AuthApi {
 
     @Inject
     AuthService authService;
+    @Inject
+    Mapper mapper;
 
     @Override
-    public Uni<Response> signUp(UserRequest request) {
+    public Uni<Void> signUp(UserRequest request) {
         return authService.getUser(request.getEmail())
                 .onItem().transformToUni(existingUser -> {
                     if (existingUser != null) {
-                        return Uni.createFrom().item(
+                        throw new WebApplicationException(
                                 Response.status(Response.Status.CONFLICT)
-                                        .entity(Json.createObjectBuilder()
-                                                .add("message", "User with this email already exists").build().toString()).build()
+                                        .entity("User with this email already exists")
+                                        .build()
                         );
-                    } else {
-                        return authService.signUp(request)
-                                .replaceWith(Response.status(Response.Status.CREATED).build())
-                                .onFailure().recoverWithItem(throwable ->
-                                        Response.status(Response.Status.BAD_REQUEST).entity(throwable.getMessage()).build());
                     }
+                    return authService.signUp(request)
+                            .onFailure().transform(this::handleFailure);
                 });
     }
 
     @Override
-    public Uni<Response> signIn(UserRequest request) {
-        return authService.signIn(request)
-                .onItem().transform(user -> Response.ok(user).build())
-                .onFailure().recoverWithItem(throwable ->
-                        Response.status(((WebApplicationException) throwable).getResponse().getStatus()).entity(throwable.getMessage()).build());
+    public Uni<UserResource> signIn(UserRequest request) {
+        return authService.signIn(request).onItem().transform(mapper::toResource)
+                .onFailure().transform(this::handleFailure);
     }
 
     @Override
-    public Uni<Response> signOut() {
-        return Uni.createFrom().item(() -> Response.ok(Json.createObjectBuilder()
-                .add("message", "Logged out successfully").build().toString()).build());
-        //TODO: implementar black list
-        //return authService.signOut();
+    public Uni<Void> signOut() {
+        // TODO: Implementar blacklist de tokens
+        return Uni.createFrom().voidItem();
     }
 
     @Override
-    public Uni<Response> isAuthenticated(SecurityContext securityContext) {
-        return Uni.createFrom().item(
-                Response.ok().entity("{\"authenticated\": true}").build()
+    public Uni<Boolean> isAuthenticated(SecurityContext securityContext) {
+        return Uni.createFrom().item(true);
+    }
+
+    private WebApplicationException handleFailure(Throwable throwable) {
+        if (throwable instanceof WebApplicationException) {
+            return (WebApplicationException) throwable;
+        }
+        return new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                        .entity(throwable.getMessage())
+                        .build()
         );
     }
 }

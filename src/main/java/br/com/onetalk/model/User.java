@@ -2,7 +2,6 @@ package br.com.onetalk.model;
 
 import br.com.onetalk.infrastructure.constants.UserStatus;
 import io.quarkus.mongodb.panache.common.MongoEntity;
-import jakarta.persistence.Id;
 import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
@@ -13,7 +12,6 @@ import java.util.Set;
 @MongoEntity(collection = "users")
 public class User {
 
-    @Id
     private ObjectId id;
     private String name;
     private String email;
@@ -29,9 +27,10 @@ public class User {
     public User() {
     }
 
-    public User(String name, String email, String passwordHash, String profilePic, String profilePicBase64, String token,
+    public User(ObjectId id, String name, String email, String passwordHash, String profilePic, String profilePicBase64, String token,
                 Set<String> roles, LocalDateTime createdAt, UserStatus userStatus, List<ObjectId> conversationIds) {
 
+        this.id = id;
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -44,9 +43,18 @@ public class User {
         this.conversationIds = conversationIds;
     }
 
-    public User(ObjectId id, String email) {
+    public User(ObjectId id, String name, String email, String profilePicBase64, LocalDateTime createdAt, UserStatus userStatus) {
         this.id = id;
+        this.name = name;
         this.email = email;
+        this.profilePicBase64 = profilePicBase64;
+        this.createdAt = createdAt;
+        this.userStatus = userStatus;
+    }
+
+    public User(ObjectId id, String name) {
+        this.id = id;
+        this.name = name;
     }
 
     @Override

@@ -1,9 +1,12 @@
-package br.com.onetalk.api.service;
+package br.com.onetalk.service;
 
-import br.com.onetalk.api.response.FriendshipResponse;
+import br.com.onetalk.api.resource.FriendshipResource;
+import br.com.onetalk.api.resource.UserResource;
 import br.com.onetalk.infrastructure.constants.FriendshipStatus;
 import br.com.onetalk.model.Friendship;
 import br.com.onetalk.repository.FriendshipRepository;
+import br.com.onetalk.repository.UserRepository;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -19,6 +22,9 @@ public class FriendshipService {
 
     @Inject
     FriendshipRepository repository;
+
+    @Inject
+    UserRepository userRepository;
 
     public Uni<Void> sendInvite(String userEmail, String email) {
         if (userEmail.equals(email)) throw new IllegalArgumentException("You can't add yourself as a friend.");
@@ -94,10 +100,10 @@ public class FriendshipService {
                 .replaceWithVoid();
     }
 
-    public Uni<Set<FriendshipResponse>> listInvites(String userEmail) {
+    public Uni<Set<FriendshipResource>> listInvites(String userEmail) {
         return repository.listFriendsByStatus(userEmail, FriendshipStatus.PENDING).onItem()
                 .transform(friendships -> {
-                    Set<FriendshipResponse> responses = new HashSet<>();
+                    Set<FriendshipResource> responses = new HashSet<>();
 
                     if (friendships.isEmpty()) {
                         return responses;
@@ -107,10 +113,10 @@ public class FriendshipService {
                         //TODO: RETONAR OS USUARIOS
                         String email = !Objects.equals(friendship.getUserEmail1(), userEmail) ? friendship.getUserEmail1() : friendship.getUserEmail2();
 
-                        FriendshipResponse response = new FriendshipResponse(friendship.getId(), email, friendship.getUserSender(),
-                                null, friendship.getStatus(), friendship.getCreatedAt()
-                        );
-
+                        //TODO: criar mapper
+                        FriendshipResource response = FriendshipResource.builder().id(friendship.getId()).friendEmail(email)
+                                .userSender(friendship.getUserSender()).friend(null).status(friendship.getStatus())
+                                .createdAt(friendship.getCreatedAt()).build();
                         responses.add(response);
                     });
 
@@ -118,28 +124,28 @@ public class FriendshipService {
                 });
     }
 
-    public Uni<Set<FriendshipResponse>> listFriends(String userEmail) {
+    public Uni<Set<FriendshipResource>> listFriends(String userEmail) {
+        return repository.listFriendsByStatus(userEmail, FriendshipStatus.ACCEPTED)
+                .onItem().transformToMulti(friendships -> Multi.createFrom().iterable(friendships))
+                .onItem().transformToUniAndMerge(friendship -> {
+                    String friendEmail = !Objects.equals(friendship.getUserEmail1(), userEmail)
+                            ? friendship.getUserEmail1()
+                            : friendship.getUserEmail2();
 
-        return repository.listFriendsByStatus(userEmail, FriendshipStatus.ACCEPTED).onItem()
-                .transform(friendships -> {
-                    Set<FriendshipResponse> responses = new HashSet<>();
+                    return userRepository.findByEmail(friendEmail)
+                            .onItem().transform(user -> {
 
-                    if (friendships.isEmpty()) {
-                        return responses;
-                    }
+                                //TODO: criar mapper
+                                UserResource friend = UserResource.builder().id(user.getId()).name(user.getName())
+                                        .email(user.getEmail()).profilePicBase64(user.getProfilePicBase64())
+                                        .createdAt(user.getCreatedAt()).userStatus(user.getUserStatus()).build();
 
-                    friendships.forEach(friendship -> {
-
-                        String email = !Objects.equals(friendship.getUserEmail1(), userEmail) ? friendship.getUserEmail1() : friendship.getUserEmail2();
-                        //TODO: RETONAR OS USUARIOS
-                        FriendshipResponse response = new FriendshipResponse(friendship.getId(), email, friendship.getUserSender(),
-                                null, friendship.getStatus(), friendship.getCreatedAt()
-                        );
-
-                        responses.add(response);
-                    });
-
-                    return responses;
-                });
+                                //TODO: criar mapper
+                                return FriendshipResource.builder().id(friendship.getId()).friendEmail(friendEmail)
+                                        .userSender(friendship.getUserSender()).friend(friend).status(friendship.getStatus())
+                                        .createdAt(friendship.getCreatedAt()).build();
+                            });
+                })
+                .collect().asSet();
     }
 }

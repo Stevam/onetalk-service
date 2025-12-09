@@ -1,8 +1,8 @@
 package br.com.onetalk.service;
 
 import br.com.onetalk.api.request.UserRequest;
-import br.com.onetalk.infrastructure.constants.UserStatus;
 import br.com.onetalk.infrastructure.constants.Roles;
+import br.com.onetalk.infrastructure.constants.UserStatus;
 import br.com.onetalk.infrastructure.exceptions.CustomTokenGenerationException;
 import br.com.onetalk.model.User;
 import br.com.onetalk.repository.UserRepository;
@@ -34,7 +34,7 @@ public class AuthService {
         if (request.getEmail() == null) {
             return Uni.createFrom().failure(new CreationException("Failure on creating user: email is required."));
         }
-        User user = new User(request.getName(), request.getEmail(), BcryptUtil.bcryptHash(request.getPassword()),
+        User user = new User(null, request.getName(), request.getEmail(), BcryptUtil.bcryptHash(request.getPassword()),
                 null, null, null, Collections.singleton(Roles.USER_ROLE),
                 LocalDateTime.now(), UserStatus.OFFLINE, null);
 

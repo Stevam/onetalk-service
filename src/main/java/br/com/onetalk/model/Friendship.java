@@ -2,7 +2,6 @@ package br.com.onetalk.model;
 
 import br.com.onetalk.infrastructure.constants.FriendshipStatus;
 import io.quarkus.mongodb.panache.common.MongoEntity;
-import jakarta.persistence.Id;
 import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
@@ -10,7 +9,6 @@ import java.time.LocalDateTime;
 @MongoEntity(collection = "friendships")
 public class Friendship {
 
-    @Id
     private ObjectId id;
     private String userEmail1;
     private String userEmail2;
