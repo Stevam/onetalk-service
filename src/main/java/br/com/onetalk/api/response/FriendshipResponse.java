@@ -2,8 +2,6 @@ package br.com.onetalk.api.response;
 
 import br.com.onetalk.infrastructure.constants.FriendshipStatus;
 import br.com.onetalk.model.User;
-import io.quarkus.mongodb.panache.common.MongoEntity;
-import jakarta.persistence.Id;
 import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;

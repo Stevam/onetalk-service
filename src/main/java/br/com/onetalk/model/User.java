@@ -2,7 +2,7 @@ package br.com.onetalk.model;
 
 import br.com.onetalk.infrastructure.constants.UserStatus;
 import io.quarkus.mongodb.panache.common.MongoEntity;
-import jakarta.persistence.Id;
+import org.bson.codecs.pojo.annotations.BsonId;
 import org.bson.types.ObjectId;
 
 import java.time.LocalDateTime;
@@ -13,7 +13,7 @@ import java.util.Set;
 @MongoEntity(collection = "users")
 public class User {
 
-    @Id
+    @BsonId
     private ObjectId id;
     private String name;
     private String email;
